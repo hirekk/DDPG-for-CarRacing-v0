@@ -1,74 +1,122 @@
 import numpy as np
-
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
+
 
 def hidden_init(layer):
     fan_in = layer.weight.data.size()[0]
     lim = 1. / np.sqrt(fan_in)
-    return (-lim, lim)
+    return -lim, lim
+
 
 class Actor(nn.Module):
-    """Actor (Policy) Model."""
+    """
+    Actor (Policy) Model.
 
-    def __init__(self, state_size, action_size, seed, fc1_units=400, fc2_units=300):
-        """Initialize parameters and build model.
-        Params
-        ======
-            state_size (int): Dimension of each state
-            action_size (int): Dimension of each action
-            seed (int): Random seed
-            fc1_units (int): Number of nodes in first hidden layer
-            fc2_units (int): Number of nodes in second hidden layer
-        """
-        super(Actor, self).__init__()
+    Attributes
+    ----------
+    action_dim
+    seed
+    """
+    def __init__(self, action_dim, seed=42):
+        super().__init__()
         self.seed = torch.manual_seed(seed)
-        self.fc1 = nn.Linear(state_size, fc1_units)
-        self.fc2 = nn.Linear(fc1_units, fc2_units)
-        self.fc3 = nn.Linear(fc2_units, action_size)
+        self.conv1 = nn.Conv2d(in_channels=3, out_channels=64,
+                               kernel_size=6, stride=6)
+        self.bnorm1 = nn.BatchNorm2d(64)
+        self.act1 = nn.SiLU()
+        self.conv2 = nn.Conv2d(in_channels=64, out_channels=128,
+                               kernel_size=4, stride=4)
+        self.bnorm2 = nn.BatchNorm2d(128)
+        self.act2 = nn.SiLU()
+        self.conv3 = nn.Conv2d(in_channels=128, out_channels=256,
+                               kernel_size=4, stride=1)
+        self.act3 = nn.SiLU()
+        self.flatten = nn.Flatten()
+        self.fc = nn.Linear(256, 128)
+        self.act_fc = nn.SiLU()
+        self.out = nn.Linear(128, action_dim)
+        self.act_out = nn.Tanh()
         self.reset_parameters()
 
     def reset_parameters(self):
-        self.fc1.weight.data.uniform_(*hidden_init(self.fc1))
-        self.fc2.weight.data.uniform_(*hidden_init(self.fc2))
-        self.fc3.weight.data.uniform_(-3e-3, 3e-3)
+        self.conv1.weight.data.uniform_(*hidden_init(self.conv1))
+        self.conv2.weight.data.uniform_(*hidden_init(self.conv2))
+        self.conv3.weight.data.uniform_(*hidden_init(self.conv3))
+        self.fc.weight.data.uniform_(*hidden_init(self.fc))
+        self.out.weight.data.uniform_(-3e-3, 3e-3)
 
     def forward(self, state):
         """Build an actor (policy) network that maps states -> actions."""
-        x = F.relu(self.fc1(state))
-        x = F.relu(self.fc2(x))
-        return torch.tanh(self.fc3(x))
+        x = self.conv1(state)
+        x = self.bnorm1(x)
+        x = self.act1(x)
+        x = self.conv2(x)
+        x = self.bnorm2(x)
+        x = self.act2(x)
+        x = self.conv3(x)
+        x = self.act3(x)
+        x = self.flatten(x)
+        x = self.fc(x)
+        x = self.act_fc(x)
+        x = self.out(x)
+        output = self.act_out(x)
+        return output
 
 
 class Critic(nn.Module):
-    """Critic (Value) Model."""
+    """Critic (Value) Model.
 
-    def __init__(self, state_size, action_size, seed, fcs1_units=400, fc2_units=300):
-        """Initialize parameters and build model.
-        Params
-        ======
-            state_size (int): Dimension of each state
-            action_size (int): Dimension of each action
-            seed (int): Random seed
-            fcs1_units (int): Number of nodes in the first hidden layer
-            fc2_units (int): Number of nodes in the second hidden layer
-        """
-        super(Critic, self).__init__()
+    Attributes
+    ----------
+    action_dim
+    seed
+    """
+    def __init__(self,
+                 action_dim,
+                 seed=42):
+        super().__init__()
         self.seed = torch.manual_seed(seed)
-        self.fcs1 = nn.Linear(state_size, fcs1_units)
-        self.fc2 = nn.Linear(fcs1_units+action_size, fc2_units)
-        self.fc3 = nn.Linear(fc2_units, 1)
+        self.conv1 = nn.Conv2d(in_channels=3, out_channels=64,
+                               kernel_size=6, stride=6)
+        self.bnorm1 = nn.BatchNorm2d(64)
+        self.act1 = nn.SiLU()
+        self.conv2 = nn.Conv2d(in_channels=64, out_channels=128,
+                               kernel_size=4, stride=4)
+        self.bnorm2 = nn.BatchNorm2d(128)
+        self.act2 = nn.SiLU(inplace=True)
+        self.conv3 = nn.Conv2d(in_channels=128, out_channels=256,
+                               kernel_size=4, stride=1)
+        self.act3 = nn.SiLU(inplace=True)
+        self.flatten = nn.Flatten()
+        self.fc = nn.Linear(256+action_dim, 128)
+        self.act_fc = nn.SiLU()
+        self.out = nn.Linear(128, 1)
         self.reset_parameters()
 
     def reset_parameters(self):
-        self.fcs1.weight.data.uniform_(*hidden_init(self.fcs1))
-        self.fc2.weight.data.uniform_(*hidden_init(self.fc2))
-        self.fc3.weight.data.uniform_(-3e-3, 3e-3)
+        self.conv1.weight.data.uniform_(*hidden_init(self.conv1))
+        self.conv2.weight.data.uniform_(*hidden_init(self.conv2))
+        self.conv3.weight.data.uniform_(*hidden_init(self.conv3))
+        self.fc.weight.data.uniform_(*hidden_init(self.fc))
+        self.out.weight.data.uniform_(-3e-3, 3e-3)
 
     def forward(self, state, action):
-        """Build a critic (value) network that maps (state, action) pairs -> Q-values."""
-        xs = F.relu(self.fcs1(state))
-        x = torch.cat((xs, action), dim=1)
-        x = F.relu(self.fc2(x))
-        return self.fc3(x)
+        """
+        Build a critic (value) network that maps (state, action) pairs to
+        Q-values.
+        """
+        x = self.conv1(state)
+        x = self.bnorm1(x)
+        x = self.act1(x)
+        x = self.conv2(x)
+        x = self.bnorm2(x)
+        x = self.act2(x)
+        x = self.conv3(x)
+        x = self.act3(x)
+        x = self.flatten(x)
+        x = torch.cat((x, action), dim=1)
+        x = self.fc(x)
+        x = self.act_fc(x)
+        output = self.out(x)
+        return output
