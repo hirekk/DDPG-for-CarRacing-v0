@@ -8,16 +8,15 @@ import torch.nn.functional as F
 from model import Actor, Critic
 
 BUFFER_SIZE = 1_000_000  # replay buffer size
-BATCH_SIZE = 32          # minibatch size
+BATCH_SIZE = 128         # minibatch size
 GAMMA = 0.99             # discount factor
 TAU = 1e-3               # for soft update of target parameters
 LR_ACTOR = 1e-4          # learning rate of the actor
 LR_CRITIC = 3e-4         # learning rate of the critic
-WEIGHT_DECAY = 0         # L2 weight decay
-SIGMA_DECAY = 0.95
+SIGMA_DECAY = 0.99
 SIGMA_MIN = 0.005
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
 class Agent:
@@ -46,15 +45,15 @@ class Agent:
         self.seed = seed
 
         # Actor Network (w/ Target Network)
-        self.actor_local = Actor(action_dim=action_dim, seed=seed).to(device)
-        self.actor_target = Actor(action_dim=action_dim, seed=seed).to(device)
+        self.actor_local = Actor(action_dim=action_dim, seed=seed).to(DEVICE)
+        self.actor_target = Actor(action_dim=action_dim, seed=seed).to(DEVICE)
         self.actor_optimizer = torch.optim.AdamW(
             self.actor_local.parameters(), lr=LR_ACTOR, amsgrad=True,
         )
 
         # Critic Network (w/ Target Network)
-        self.critic_local = Critic(action_dim=action_dim, seed=seed).to(device)
-        self.critic_target = Critic(action_dim=action_dim, seed=seed).to(device)
+        self.critic_local = Critic(action_dim=action_dim, seed=seed).to(DEVICE)
+        self.critic_target = Critic(action_dim=action_dim, seed=seed).to(DEVICE)
         self.critic_optimizer = torch.optim.AdamW(
             self.critic_local.parameters(), lr=LR_CRITIC, amsgrad=True,
         )
@@ -83,7 +82,7 @@ class Agent:
         """Returns actions for given state as per current policy."""
         states = torch.from_numpy(
             states.copy().transpose((2, 0, 1))
-        ).float().to(device).unsqueeze(0)
+        ).float().to(DEVICE).unsqueeze(0)
 
         with torch.no_grad():
             actions = self.actor_local(states).cpu().data.numpy()
@@ -235,20 +234,20 @@ class ReplayBuffer:
         states = torch.from_numpy(np.vstack(
             [e.state.transpose((2, 0, 1))[np.newaxis, :] for e in
              experiences if e is not None])
-        ).float().to(device)
+        ).float().to(DEVICE)
         actions = torch.from_numpy(np.vstack(
             [e.action for e in experiences if e is not None])
-        ).float().to(device)
+        ).float().to(DEVICE)
         rewards = torch.from_numpy(np.vstack(
             [e.reward for e in experiences if e is not None])
-        ).float().to(device)
+        ).float().to(DEVICE)
         next_states = torch.from_numpy(np.vstack(
             [e.next_state.transpose((2, 0, 1))[np.newaxis, :] for e in
              experiences if e is not None])
-        ).float().to(device)
+        ).float().to(DEVICE)
         is_dones = torch.from_numpy(np.vstack(
             [e.done for e in experiences if e is not None]
-        ).astype(np.uint8)).float().to(device)
+        ).astype(np.uint8)).float().to(DEVICE)
 
         return states, actions, rewards, next_states, is_dones
 
