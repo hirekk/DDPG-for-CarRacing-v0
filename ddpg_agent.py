@@ -8,11 +8,11 @@ import torch.nn.functional as F
 from model import Actor, Critic
 
 BUFFER_SIZE = 1_000_000  # replay buffer size
-BATCH_SIZE = 128         # minibatch size
+BATCH_SIZE = 256         # minibatch size
 GAMMA = 0.99             # discount factor
 TAU = 1e-3               # for soft update of target parameters
-LR_ACTOR = 1e-4          # learning rate of the actor
-LR_CRITIC = 3e-4         # learning rate of the critic
+LR_ACTOR = 7e-5          # learning rate of the actor
+LR_CRITIC = 7e-5         # learning rate of the critic
 SIGMA_DECAY = 0.99
 SIGMA_MIN = 0.005
 
