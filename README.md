@@ -11,7 +11,7 @@ To set up a minimal environment to execute the training and testing notebooks ru
 
 activate the environment
 
-`source activate myenv`
+`source activate car_racing`
 
 and add a corresponding jupyter kernel
 
